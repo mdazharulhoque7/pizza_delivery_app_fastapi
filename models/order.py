@@ -2,6 +2,7 @@ from database import Base
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy_utils.types import ChoiceType
 from sqlalchemy.orm import relationship
+from models.user import User
 
 
 class Order(Base):
@@ -24,7 +25,7 @@ class Order(Base):
     order_status = Column(ChoiceType(choices=ORDER_STATUSES), default='PENDING')
     pizza_size = Column(ChoiceType(choices=PIZZA_SIZES), default='SMALL')
     user_id = Column(Integer, ForeignKey('users.id'))
-    user = relationship('User', back_populates='orders')
+    user = relationship(User, back_ref='orders')
 
     def __repr__(self):
         return f"<Order {self.id}>"
