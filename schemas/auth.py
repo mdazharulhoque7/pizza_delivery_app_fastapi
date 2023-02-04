@@ -16,3 +16,7 @@ class SingUpModel(BaseModel):
             'example': dict(username='Md Azharul Hoque', email='azharul@hoquesbiz.com', password='password',
                             is_staff=False, is_active=True)
         }
+
+class LogninModel(BaseModel):
+    username: str
+    password: str

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
 from fastapi.exceptions import HTTPException
+from fastapi.encoders import jsonable_encoder
 from werkzeug.security import generate_password_hash, check_password_hash
+from fastapi_jwt_auth import AuthJWT
 from database import Session, engine
-from schemas.auth import SingUpModel
+from schemas.auth import SingUpModel, LogninModel
 from models.user import User
 
 auth_router = APIRouter(
@@ -14,7 +16,13 @@ session = Session(bind=engine)
 
 
 @auth_router.get('/')
-async def hello():
+async def hello(Authorize: AuthJWT=Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid Token"
+                            )
     return {"message": "Auth Route"}
 
 
@@ -43,3 +51,33 @@ async def signup(user: SingUpModel):
     session.add(new_user)
     session.commit()
     return new_user
+
+
+@auth_router.post('/login', status_code=status.HTTP_200_OK)
+async def login(user: LogninModel, Authorize: AuthJWT = Depends()):
+    db_user = session.query(User).filter(User.username == user.username).first()
+    if db_user and check_password_hash(db_user.password, user.password):
+        access_token = Authorize.create_access_token(subject=db_user.username)
+        refresh_token = Authorize.create_refresh_token(subject=db_user.username)
+        response = {
+            "access": access_token,
+            "refresh": refresh_token
+        }
+        return jsonable_encoder(response)
+
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid Username or Passwrod"
+                        )
+
+@auth_router.get('/refresh')
+async def refresh_token(Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_refresh_token_required()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid Token")
+
+    current_user = Authorize.get_jwt_subject()
+    access_token = Authorize.create_access_token(subject=current_user)
+
+    return jsonable_encoder({"access": access_token})
