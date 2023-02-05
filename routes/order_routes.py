@@ -15,15 +15,24 @@ order_router = APIRouter(
 session = Session(bind=engine)
 
 
-@order_router.get('/')
-async def hello(Authorize: AuthJWT = Depends()):
+@order_router.get('/', status_code=status.HTTP_200_OK)
+async def list_orders(Authorize: AuthJWT = Depends()):
     try:
         Authorize.jwt_required()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Unauthorized Access"
                             )
-    return {"message": "Orders"}
+
+    current_user = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.username == current_user).first()
+    if user.is_staff:
+        orders = session.query(Order).all()
+        return jsonable_encoder(orders)
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Unauthorized Access"
+                            )
 
 
 @order_router.post('/', status_code=status.HTTP_201_CREATED)
